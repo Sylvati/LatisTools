@@ -176,6 +176,7 @@ public class BetterTool extends Item {
         components.add(Component.literal("Level: " + nbtTagCompound.getInt("level")));
         components.add(Component.literal("Exp: " + nbtTagCompound.getInt("exp") + "/" + nbtTagCompound.getInt("level_up_exp")).withStyle(ChatFormatting.WHITE));
         components.add(Component.literal("Modifiers: " + nbtTagCompound.getInt("available_modifiers")).withStyle(ChatFormatting.WHITE));
+
         if(nbtTagCompound.contains("sharpness")) { components.add(Component.literal("Sharpness: " + nbtTagCompound.getInt("sharpness")).withStyle(ChatFormatting.BOLD)); }
         if(nbtTagCompound.contains("speed")) { components.add(Component.literal("Speed: " + nbtTagCompound.getInt("speed")).withStyle(ChatFormatting.RED)); }
 

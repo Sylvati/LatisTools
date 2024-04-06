@@ -14,6 +14,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Tier;
@@ -35,6 +36,7 @@ public class BetterTool extends Item {
     private final float speed;
     private float attackDamageBaseline;
     private Multimap<Attribute, AttributeModifier> defaultModifiers;
+    private final int durability;
 
 
     public BetterTool(Properties props) {
@@ -48,6 +50,7 @@ public class BetterTool extends Item {
         builder.put(Attributes.ATTACK_DAMAGE, new AttributeModifier(BASE_ATTACK_DAMAGE_UUID, "Weapon modifier", (double)this.attackDamageBaseline, AttributeModifier.Operation.ADDITION));
         builder.put(Attributes.ATTACK_SPEED, new AttributeModifier(BASE_ATTACK_SPEED_UUID, "Tool modifier", (double)1, AttributeModifier.Operation.ADDITION));
         this.defaultModifiers = builder.build();
+        this.durability = 10;
     }
 
     public static String getName() {
@@ -92,10 +95,29 @@ public class BetterTool extends Item {
 
     @Override
     public boolean canBeDepleted() {
-        return false; //Just no for now
+        return true;
+    }
+
+    @Override
+    public int getMaxDamage(ItemStack stack) {
+        return getDamage(stack) == durability ? durability + 1 : durability;
+    }
+
+    @Override
+    public int getDamage(ItemStack stack) {
+        return !stack.hasTag() ? 0 : stack.getTag().getInt("Damage");
     }
 
     //Atacking Logic (hooh boy this is where it gets cringe)
+
+    @Override
+    public boolean onLeftClickEntity(ItemStack itemStack, Player player, Entity entity) {
+        if(getDamage(itemStack) == durability) {
+            return true;
+        }
+        return super.onLeftClickEntity(itemStack, player, entity);
+    }
+
 
     //Harvesting Logic (:3)
 
@@ -109,30 +131,35 @@ public class BetterTool extends Item {
         if (!level.isClientSide && blockState.getDestroySpeed(level, blockPos) != 0.0F) {
             itemStack.hurtAndBreak(1, player, (p_40992_) -> {
                 p_40992_.broadcastBreakEvent(EquipmentSlot.MAINHAND);
+
             });
         }
 
         CompoundTag nbtTagCompound = itemStack.getTag();
-        if(nbtTagCompound == null) { return false; }
+        if(nbtTagCompound != null) {
+            nbtTagCompound.putInt("exp",  nbtTagCompound.getInt("exp") + 1); //Every block broken will give 1 exp
 
-        nbtTagCompound.putInt("exp",  nbtTagCompound.getInt("exp") + 1); //Every block broken will give 1 exp
+            if(nbtTagCompound.getInt("exp") >= nbtTagCompound.getInt("level_up_exp")) {
+                //Level up!!!
+                nbtTagCompound.putInt("level", nbtTagCompound.getInt("level") + 1);
+                nbtTagCompound.putInt("exp", nbtTagCompound.getInt("exp") - nbtTagCompound.getInt("level_up_exp"));
+                nbtTagCompound.putInt("level_up_exp", nbtTagCompound.getInt("level_up_exp") + 1);
+                nbtTagCompound.putInt("available_modifiers", nbtTagCompound.getInt("available_modifiers") + 1);
 
-        if(nbtTagCompound.getInt("exp") >= nbtTagCompound.getInt("level_up_exp")) {
-            //Level up!!!
-            nbtTagCompound.putInt("level", nbtTagCompound.getInt("level") + 1);
-            nbtTagCompound.putInt("exp", nbtTagCompound.getInt("exp") - nbtTagCompound.getInt("level_up_exp"));
-            nbtTagCompound.putInt("level_up_exp", nbtTagCompound.getInt("level_up_exp") + 1);
-            nbtTagCompound.putInt("available_modifiers", nbtTagCompound.getInt("available_modifiers") + 1);
-
-            player.sendSystemMessage(Component.literal("You levelled up to level " + nbtTagCompound.getInt("level") + "!"));
+                player.sendSystemMessage(Component.literal("You levelled up to level " + nbtTagCompound.getInt("level") + "!"));
+            }
         }
-
         return true;
     }
 
     @Override
     public float getDestroySpeed(ItemStack itemStack, BlockState blockState) {
+        if(getDamage(itemStack) == durability) {
+            return 0.0f;
+        }
+
         if (blockState.is(this.blocks)) {
+
             if(itemStack.getTag() != null && itemStack.getTag().contains("speed")) {
                 return this.tier.getSpeed() * itemStack.getTag().getInt("speed");
             }else {
@@ -147,21 +174,18 @@ public class BetterTool extends Item {
     @Override
     public void inventoryTick(ItemStack itemStack, @NotNull Level level, Entity player, int slot, boolean selected) {
         CompoundTag nbtTagCompound = itemStack.getTag();
-        if(nbtTagCompound == null) {
+        if(nbtTagCompound != null && !nbtTagCompound.contains("exp")) {
             nbtTagCompound = new CompoundTag();
             itemStack.setTag(nbtTagCompound);
             nbtTagCompound.putInt("exp", 0);
             nbtTagCompound.putInt("level_up_exp", 1);
             nbtTagCompound.putInt("level", 1);
             nbtTagCompound.putInt("available_modifiers", 0);
-        }
-        if(nbtTagCompound.contains("sharpness")) {
-            /* This does technically work, but modifies EVERY instance of the item's stats. Very weird
-            ImmutableMultimap.Builder<Attribute, AttributeModifier> builder = ImmutableMultimap.builder();
-            builder.put(Attributes.ATTACK_DAMAGE, new AttributeModifier(BASE_ATTACK_DAMAGE_UUID, "Weapon modifier", (double)this.attackDamageBaseline + 3 * nbtTagCompound.getInt("sharpness"), AttributeModifier.Operation.ADDITION));
-            builder.put(Attributes.ATTACK_SPEED, new AttributeModifier(BASE_ATTACK_SPEED_UUID, "Tool modifier", (double)1, AttributeModifier.Operation.ADDITION));
-            this.defaultModifiers = builder.build();
-             */
+            CompoundTag test = new CompoundTag();
+            test.putString("test1", "gyatt");
+            test.putString("test2", "gyatt");
+            test.putString("test3", "gyatt");
+            nbtTagCompound.put("materials", test);
         }
     }
 

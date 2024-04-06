@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "latistoolsid:block/tool_table"
+    }
+  }
+}

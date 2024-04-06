@@ -14,16 +14,14 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Tier;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.common.ToolAction;
-import net.minecraftforge.common.ToolActions;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -52,104 +50,58 @@ public class BetterTool extends Item {
         this.defaultModifiers = builder.build();
     }
 
-    //Unique?
-
-    @Override
-    public void appendHoverText(ItemStack itemStack, @Nullable Level level, List<Component> components, TooltipFlag tooltipFlag) {
-        CompoundTag nbtTagCompound = itemStack.getTag();
-        //System.out.println(nbtTagCompound);
-        if(nbtTagCompound == null) { return; }
-        //components.add(Component.literal("Skibidi toilet rizzing up baby gronk.").withStyle(ChatFormatting.WHITE));
-        components.add(Component.literal("Level: " + nbtTagCompound.getInt("level")));
-        components.add(Component.literal("Exp: " + nbtTagCompound.getInt("exp") + "/" + nbtTagCompound.getInt("level_up_exp")).withStyle(ChatFormatting.WHITE));
-        components.add(Component.literal("Modifiers: " + nbtTagCompound.getInt("available_modifiers")).withStyle(ChatFormatting.WHITE));
-        if(nbtTagCompound.contains("sharpness")) { components.add(Component.literal("Sharpness: " + nbtTagCompound.getInt("sharpness")).withStyle(ChatFormatting.BOLD)); }
-        if(nbtTagCompound.contains("speed")) { components.add(Component.literal("Speed: " + nbtTagCompound.getInt("speed")).withStyle(ChatFormatting.RED)); }
-
-        components.add(Component.literal("The rest of nbt: " + nbtTagCompound));
+    public static String getName() {
+        return name;
     }
 
-    //End Unique
+    //Basic properties
 
-    //SwordItem-based Overrides or Definitions
-    public float getDamage() {
-        return this.attackDamageBaseline;
+    @Override
+    public int getMaxStackSize(ItemStack stack) {
+        return 1;
     }
 
     @Override
-    public boolean canAttackBlock(BlockState p_43291_, Level p_43292_, BlockPos p_43293_, Player player) { //Idk what the rest of those are so lol, just leaving them
-        return !player.isCreative();
+    public boolean isEnchantable(ItemStack stack) {
+        return false; //For now, maybe have like... a modifier that changes this? would be cool :D
     }
 
     @Override
-    public boolean hurtEnemy(ItemStack itemStack, LivingEntity enemy, LivingEntity player) { //These variable names are afaik, not certain of player and enemy
-        itemStack.hurtAndBreak(1, player, (p_43296_) -> p_43296_.broadcastBreakEvent(EquipmentSlot.MAINHAND));
-        return true;
+    public boolean isBookEnchantable(ItemStack stack, ItemStack book) {
+        return false; //Same as above
     }
 
-    //End SwordItem-based
-
-    //DiggerItem-based
     @Override
-    public float getDestroySpeed(ItemStack itemStack, BlockState blockState) {
-        if (blockState.is(this.blocks)) {
-            if(itemStack.getTag() != null && itemStack.getTag().contains("speed")) {
-                return this.tier.getSpeed() * itemStack.getTag().getInt("speed");
-            }else {
-                return this.tier.getSpeed();
-            }
-        }
-        return 1.0F;
+    public boolean canApplyAtEnchantingTable(ItemStack stack, Enchantment enchantment) {
+        return false; //Same as above
     }
 
-    public float getAttackDamage() { //Not an override, but here for some reason in DiggerItem? Including just to be safe ig
-        return this.attackDamageBaseline;
+    //Display
+
+    @Override //Will it enchanted glow basically
+    public boolean isFoil(ItemStack itemStack) {
+        return false; //For now, maybe let a modifier do it later
     }
 
-    //End DiggerItem-based
+    //Damage / Durability
+    //Anyone else think its dumb that its called damage ?? just stick to durability??? or am i missing something
+    @Override
+    public boolean isRepairable(ItemStack stack) {
+        return false; //Gonna have a custom Tinkers 1.12 style system for this
+    }
 
-    //Both-based
+    @Override
+    public boolean canBeDepleted() {
+        return false; //Just no for now
+    }
+
+    //Atacking Logic (hooh boy this is where it gets cringe)
+
+    //Harvesting Logic (:3)
 
     @Override //Maybe good? think its for like when u cant mine dia's with wood. dunno
     public boolean isCorrectToolForDrops(ItemStack stack, BlockState state) {
         return state.is(blocks) && net.minecraftforge.common.TierSortingRegistry.isCorrectTierForDrops(this.tier, state);
-    }
-
-    @Override
-    public boolean canPerformAction(ItemStack stack, ToolAction toolAction) { //Can sword or pick
-        return (net.minecraftforge.common.ToolActions.DEFAULT_SWORD_ACTIONS.contains(toolAction) || ToolActions.DEFAULT_PICKAXE_ACTIONS.contains(toolAction));
-    }
-
-    @Override
-    public Multimap<Attribute, AttributeModifier> getDefaultAttributeModifiers(EquipmentSlot equipmentSlot) {
-        return equipmentSlot == EquipmentSlot.MAINHAND ? this.defaultModifiers : super.getDefaultAttributeModifiers(equipmentSlot);
-    }
-
-    //End both-based
-
-    //Neither / misc / im too lazy based
-
-
-    @Override
-    public void inventoryTick(ItemStack itemStack, @NotNull Level level, Entity player, int slot, boolean selected) {
-        CompoundTag nbtTagCompound = itemStack.getTag();
-        if(nbtTagCompound == null) {
-            nbtTagCompound = new CompoundTag();
-            itemStack.setTag(nbtTagCompound);
-            nbtTagCompound.putInt("exp", 0);
-            nbtTagCompound.putInt("level_up_exp", 1);
-            nbtTagCompound.putInt("level", 1);
-            nbtTagCompound.putInt("available_modifiers", 0);
-        }
-        if(nbtTagCompound.contains("sharpness")) {
-            /* This does technically work, but modifies EVERY instance of the item's stats. Very weird
-            ImmutableMultimap.Builder<Attribute, AttributeModifier> builder = ImmutableMultimap.builder();
-            builder.put(Attributes.ATTACK_DAMAGE, new AttributeModifier(BASE_ATTACK_DAMAGE_UUID, "Weapon modifier", (double)this.attackDamageBaseline + 3 * nbtTagCompound.getInt("sharpness"), AttributeModifier.Operation.ADDITION));
-            builder.put(Attributes.ATTACK_SPEED, new AttributeModifier(BASE_ATTACK_SPEED_UUID, "Tool modifier", (double)1, AttributeModifier.Operation.ADDITION));
-            this.defaultModifiers = builder.build();
-             */
-        }
-
     }
 
     @Override
@@ -178,7 +130,57 @@ public class BetterTool extends Item {
         return true;
     }
 
-    public static String getName() {
-        return name;
+    @Override
+    public float getDestroySpeed(ItemStack itemStack, BlockState blockState) {
+        if (blockState.is(this.blocks)) {
+            if(itemStack.getTag() != null && itemStack.getTag().contains("speed")) {
+                return this.tier.getSpeed() * itemStack.getTag().getInt("speed");
+            }else {
+                return this.tier.getSpeed();
+            }
+        }
+        return 1.0F;
     }
+
+    //Inventory Tick Stuff
+
+    @Override
+    public void inventoryTick(ItemStack itemStack, @NotNull Level level, Entity player, int slot, boolean selected) {
+        CompoundTag nbtTagCompound = itemStack.getTag();
+        if(nbtTagCompound == null) {
+            nbtTagCompound = new CompoundTag();
+            itemStack.setTag(nbtTagCompound);
+            nbtTagCompound.putInt("exp", 0);
+            nbtTagCompound.putInt("level_up_exp", 1);
+            nbtTagCompound.putInt("level", 1);
+            nbtTagCompound.putInt("available_modifiers", 0);
+        }
+        if(nbtTagCompound.contains("sharpness")) {
+            /* This does technically work, but modifies EVERY instance of the item's stats. Very weird
+            ImmutableMultimap.Builder<Attribute, AttributeModifier> builder = ImmutableMultimap.builder();
+            builder.put(Attributes.ATTACK_DAMAGE, new AttributeModifier(BASE_ATTACK_DAMAGE_UUID, "Weapon modifier", (double)this.attackDamageBaseline + 3 * nbtTagCompound.getInt("sharpness"), AttributeModifier.Operation.ADDITION));
+            builder.put(Attributes.ATTACK_SPEED, new AttributeModifier(BASE_ATTACK_SPEED_UUID, "Tool modifier", (double)1, AttributeModifier.Operation.ADDITION));
+            this.defaultModifiers = builder.build();
+             */
+        }
+    }
+
+    //Tooltip
+
+    @Override
+    public void appendHoverText(ItemStack itemStack, @Nullable Level level, List<Component> components, TooltipFlag tooltipFlag) {
+        CompoundTag nbtTagCompound = itemStack.getTag();
+        //System.out.println(nbtTagCompound);
+        if(nbtTagCompound == null) { return; }
+        //components.add(Component.literal("Skibidi toilet rizzing up baby gronk.").withStyle(ChatFormatting.WHITE));
+        components.add(Component.literal("Level: " + nbtTagCompound.getInt("level")));
+        components.add(Component.literal("Exp: " + nbtTagCompound.getInt("exp") + "/" + nbtTagCompound.getInt("level_up_exp")).withStyle(ChatFormatting.WHITE));
+        components.add(Component.literal("Modifiers: " + nbtTagCompound.getInt("available_modifiers")).withStyle(ChatFormatting.WHITE));
+        if(nbtTagCompound.contains("sharpness")) { components.add(Component.literal("Sharpness: " + nbtTagCompound.getInt("sharpness")).withStyle(ChatFormatting.BOLD)); }
+        if(nbtTagCompound.contains("speed")) { components.add(Component.literal("Speed: " + nbtTagCompound.getInt("speed")).withStyle(ChatFormatting.RED)); }
+
+        components.add(Component.literal("The rest of nbt: " + nbtTagCompound));
+    }
+
+
 }

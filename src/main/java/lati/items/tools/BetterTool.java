@@ -23,10 +23,14 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.common.capabilities.AutoRegisterCapability;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
+
+import static lati.items.tools.ToolIDs.*;
 
 public class BetterTool extends Item {
     private static final String name = "better_tool";
@@ -65,7 +69,7 @@ public class BetterTool extends Item {
     }
 
     @Override
-    public boolean isEnchantable(ItemStack stack) {
+    public boolean isEnchantable(@NotNull ItemStack stack) {
         return false; //For now, maybe have like... a modifier that changes this? would be cool :D
     }
 
@@ -82,14 +86,14 @@ public class BetterTool extends Item {
     //Display
 
     @Override //Will it enchanted glow basically
-    public boolean isFoil(ItemStack itemStack) {
+    public boolean isFoil(@NotNull ItemStack itemStack) {
         return false; //For now, maybe let a modifier do it later
     }
 
     //Damage / Durability
     //Anyone else think its dumb that its called damage ?? just stick to durability??? or am i missing something
     @Override
-    public boolean isRepairable(ItemStack stack) {
+    public boolean isRepairable(@NotNull ItemStack stack) {
         return false; //Gonna have a custom Tinkers 1.12 style system for this
     }
 
@@ -127,7 +131,7 @@ public class BetterTool extends Item {
     }
 
     @Override
-    public boolean mineBlock(ItemStack itemStack, Level level, BlockState blockState, BlockPos blockPos, LivingEntity player) {
+    public boolean mineBlock(@NotNull ItemStack itemStack, Level level, @NotNull BlockState blockState, @NotNull BlockPos blockPos, @NotNull LivingEntity player) {
         if (!level.isClientSide && blockState.getDestroySpeed(level, blockPos) != 0.0F) {
             itemStack.hurtAndBreak(1, player, (p_40992_) -> {
                 p_40992_.broadcastBreakEvent(EquipmentSlot.MAINHAND);
@@ -135,25 +139,35 @@ public class BetterTool extends Item {
             });
         }
 
-        CompoundTag nbtTagCompound = itemStack.getTag();
-        if(nbtTagCompound != null) {
-            nbtTagCompound.putInt("exp",  nbtTagCompound.getInt("exp") + 1); //Every block broken will give 1 exp
+        CompoundTag nbt = itemStack.getTag().copy();
+        CompoundTag levelNbt = (CompoundTag)nbt.get(LEVEL_DATA_REF);
+        CompoundTag modifierNbt = (CompoundTag)nbt.get(MODIFIERS_DATA_REF);
 
-            if(nbtTagCompound.getInt("exp") >= nbtTagCompound.getInt("level_up_exp")) {
-                //Level up!!!
-                nbtTagCompound.putInt("level", nbtTagCompound.getInt("level") + 1);
-                nbtTagCompound.putInt("exp", nbtTagCompound.getInt("exp") - nbtTagCompound.getInt("level_up_exp"));
-                nbtTagCompound.putInt("level_up_exp", nbtTagCompound.getInt("level_up_exp") + 1);
-                nbtTagCompound.putInt("available_modifiers", nbtTagCompound.getInt("available_modifiers") + 1);
+        int exp_per_block = 1; //Arbitrary
 
-                player.sendSystemMessage(Component.literal("You levelled up to level " + nbtTagCompound.getInt("level") + "!"));
-            }
+        levelNbt.putInt(EXP_REF, levelNbt.getInt(EXP_REF) + exp_per_block);
+
+        System.out.println(levelNbt.getInt(EXP_REF) + " " + levelNbt.getInt(LEVEL_UP_EXP_REF));
+
+        if(levelNbt.getInt(EXP_REF) >= levelNbt.getInt(LEVEL_UP_EXP_REF)) {
+            //Level up!!!
+            levelNbt.putInt(LEVEL_REF, levelNbt.getInt(LEVEL_REF) + 1);
+            levelNbt.putInt(EXP_REF, levelNbt.getInt(EXP_REF) - levelNbt.getInt(LEVEL_UP_EXP_REF));
+            levelNbt.putInt(LEVEL_UP_EXP_REF, levelNbt.getInt(LEVEL_UP_EXP_REF) + 1);
+            modifierNbt.putInt(AVAILABLE_MODIFIERS_REF, modifierNbt.getInt(AVAILABLE_MODIFIERS_REF) + 1);
+
+            player.sendSystemMessage(Component.literal("You levelled up to level " + levelNbt.getInt(LEVEL_REF) + "!"));
         }
+
+        //Finalize it to the actual nbt
+        nbt.put(LEVEL_DATA_REF, levelNbt);
+        nbt.put(MODIFIERS_DATA_REF, modifierNbt);
+        itemStack.setTag(nbt);
         return true;
     }
 
     @Override
-    public float getDestroySpeed(ItemStack itemStack, BlockState blockState) {
+    public float getDestroySpeed(@NotNull ItemStack itemStack, @NotNull BlockState blockState) {
         if(getDamage(itemStack) == durability) {
             return 0.0f;
         }
@@ -172,40 +186,77 @@ public class BetterTool extends Item {
     //Inventory Tick Stuff
 
     @Override
-    public void inventoryTick(ItemStack itemStack, @NotNull Level level, Entity player, int slot, boolean selected) {
-        CompoundTag nbtTagCompound = itemStack.getTag();
-        if(nbtTagCompound != null && !nbtTagCompound.contains("exp")) {
-            nbtTagCompound = new CompoundTag();
-            itemStack.setTag(nbtTagCompound);
-            nbtTagCompound.putInt("exp", 0);
-            nbtTagCompound.putInt("level_up_exp", 1);
-            nbtTagCompound.putInt("level", 1);
-            nbtTagCompound.putInt("available_modifiers", 0);
-            CompoundTag test = new CompoundTag();
-            test.putString("test1", "gyatt");
-            test.putString("test2", "gyatt");
-            test.putString("test3", "gyatt");
-            nbtTagCompound.put("materials", test);
+    public void inventoryTick(ItemStack itemStack, @NotNull Level level, @NotNull Entity player, int slot, boolean selected) {
+        CompoundTag originalNbt = itemStack.getTag();
+
+
+        if(!originalNbt.contains(LEVEL_DATA_REF)) {
+            System.out.println("INITIALIZING THE FREAKING THINGY!!!!!!!!!!!!!!!");
+            //Put default nbt
+            CompoundTag nbt = new CompoundTag();
+            itemStack.setTag(nbt);
+
+            //Level nbt
+            CompoundTag levelNbt = new CompoundTag();
+            levelNbt.putInt(EXP_REF, 0);
+            levelNbt.putInt(LEVEL_UP_EXP_REF, 1);
+            levelNbt.putInt(LEVEL_REF, 1);
+            nbt.put(LEVEL_DATA_REF, levelNbt);
+
+            //Modifier nbt
+            CompoundTag modifierNbt = new CompoundTag();
+            modifierNbt.putInt(AVAILABLE_MODIFIERS_REF, 0);
+            modifierNbt.put(MODIFIERS_REF, new CompoundTag());
+            nbt.put(MODIFIERS_DATA_REF, modifierNbt);
         }
     }
 
     //Tooltip
 
     @Override
-    public void appendHoverText(ItemStack itemStack, @Nullable Level level, List<Component> components, TooltipFlag tooltipFlag) {
-        CompoundTag nbtTagCompound = itemStack.getTag();
-        //System.out.println(nbtTagCompound);
-        if(nbtTagCompound == null) { return; }
-        //components.add(Component.literal("Skibidi toilet rizzing up baby gronk.").withStyle(ChatFormatting.WHITE));
-        components.add(Component.literal("Level: " + nbtTagCompound.getInt("level")));
-        components.add(Component.literal("Exp: " + nbtTagCompound.getInt("exp") + "/" + nbtTagCompound.getInt("level_up_exp")).withStyle(ChatFormatting.WHITE));
-        components.add(Component.literal("Modifiers: " + nbtTagCompound.getInt("available_modifiers")).withStyle(ChatFormatting.WHITE));
-
-        if(nbtTagCompound.contains("sharpness")) { components.add(Component.literal("Sharpness: " + nbtTagCompound.getInt("sharpness")).withStyle(ChatFormatting.BOLD)); }
-        if(nbtTagCompound.contains("speed")) { components.add(Component.literal("Speed: " + nbtTagCompound.getInt("speed")).withStyle(ChatFormatting.RED)); }
-
-        components.add(Component.literal("The rest of nbt: " + nbtTagCompound));
+    public void appendHoverText(@NotNull ItemStack itemStack, @Nullable Level level, List<Component> components, @NotNull TooltipFlag tooltipFlag) {
+        List<Component> componentsToAdd = makeToolTip(itemStack);
+        components.addAll(componentsToAdd);
+        components.add(Component.literal("The rest of nbt: " + itemStack.getTag())); //TODO remove this later
     }
 
+    public List<Component> makeToolTip(ItemStack itemStack) {
+        //Get item data
+        CompoundTag nbt = itemStack.getTag();
+        if(nbt == null) { return new ArrayList<>(); }
+        CompoundTag levelNbt = (CompoundTag) nbt.get(LEVEL_DATA_REF);
+        if(levelNbt == null) { return new ArrayList<>(); }
+        CompoundTag modifierNbt = (CompoundTag) nbt.get(MODIFIERS_DATA_REF);
+        if(modifierNbt == null) { return new ArrayList<>(); }
 
+        //Make the tooltip
+        List<Component> components = new ArrayList<>();
+
+        //Durability tooltip
+        Component durr_tt = Component.literal(String.valueOf(durability - getDamage(itemStack))).withStyle(ChatFormatting.GREEN);
+        Component total_durr_tt = Component.literal(String.valueOf(durability)).withStyle(ChatFormatting.GREEN);
+        Component final_durr_msg_tt = Component.literal("Durability: ").append(durr_tt).append("/").append(total_durr_tt);
+        components.add(final_durr_msg_tt);
+
+        //Level tooltip
+        Component level_tt = Component.literal(String.valueOf(levelNbt.getInt(LEVEL_REF))).withStyle(ChatFormatting.YELLOW);
+        Component final_level_msg_tt = Component.literal("Level: ").append(level_tt);
+        components.add(final_level_msg_tt);
+
+        //Exp tooltip
+        Component exp_tt = Component.literal(String.valueOf(levelNbt.getInt(EXP_REF))).withStyle(ChatFormatting.YELLOW);
+        Component level_up_exp_tt = Component.literal(String.valueOf(levelNbt.getInt(LEVEL_UP_EXP_REF))).withStyle(ChatFormatting.YELLOW);
+        Component final_exp_tt = Component.literal("Exp: ").append(exp_tt).append("/").append(level_up_exp_tt);
+        components.add(final_exp_tt);
+
+        //Available modifiers tooltip
+        Component avail_modif_tt = Component.literal(String.valueOf(modifierNbt.getInt(AVAILABLE_MODIFIERS_REF))).withStyle(ChatFormatting.WHITE);
+        Component final_modif_tt = Component.literal("Modifiers: ").append(avail_modif_tt);
+        components.add(final_modif_tt);
+
+        //Actual modifiers tooltip
+        //Lets do this later
+
+        return components;
+    }
 }

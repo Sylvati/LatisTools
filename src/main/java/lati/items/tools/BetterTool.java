@@ -23,7 +23,6 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.common.capabilities.AutoRegisterCapability;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,8 +50,8 @@ public class BetterTool extends Item {
         this.speed = tier.getSpeed();
         this.attackDamageBaseline = (float)1;
         ImmutableMultimap.Builder<Attribute, AttributeModifier> builder = ImmutableMultimap.builder();
-        builder.put(Attributes.ATTACK_DAMAGE, new AttributeModifier(BASE_ATTACK_DAMAGE_UUID, "Weapon modifier", (double)this.attackDamageBaseline, AttributeModifier.Operation.ADDITION));
-        builder.put(Attributes.ATTACK_SPEED, new AttributeModifier(BASE_ATTACK_SPEED_UUID, "Tool modifier", (double)1, AttributeModifier.Operation.ADDITION));
+        builder.put(Attributes.ATTACK_DAMAGE, new AttributeModifier(BASE_ATTACK_DAMAGE_UUID, "Weapon modifier", this.attackDamageBaseline, AttributeModifier.Operation.ADDITION));
+        builder.put(Attributes.ATTACK_SPEED, new AttributeModifier(BASE_ATTACK_SPEED_UUID, "Tool modifier", 1, AttributeModifier.Operation.ADDITION));
         this.defaultModifiers = builder.build();
         this.durability = 10;
     }
@@ -139,7 +138,7 @@ public class BetterTool extends Item {
             });
         }
 
-        CompoundTag nbt = itemStack.getTag().copy();
+        CompoundTag nbt = itemStack.getTag();
         CompoundTag levelNbt = (CompoundTag)nbt.get(LEVEL_DATA_REF);
         CompoundTag modifierNbt = (CompoundTag)nbt.get(MODIFIERS_DATA_REF);
 
@@ -159,10 +158,6 @@ public class BetterTool extends Item {
             player.sendSystemMessage(Component.literal("You levelled up to level " + levelNbt.getInt(LEVEL_REF) + "!"));
         }
 
-        //Finalize it to the actual nbt
-        nbt.put(LEVEL_DATA_REF, levelNbt);
-        nbt.put(MODIFIERS_DATA_REF, modifierNbt);
-        itemStack.setTag(nbt);
         return true;
     }
 
@@ -190,7 +185,7 @@ public class BetterTool extends Item {
         CompoundTag originalNbt = itemStack.getTag();
 
 
-        if(!originalNbt.contains(LEVEL_DATA_REF)) {
+        if(originalNbt != null && !originalNbt.contains(LEVEL_DATA_REF)) {
             System.out.println("INITIALIZING THE FREAKING THINGY!!!!!!!!!!!!!!!");
             //Put default nbt
             CompoundTag nbt = new CompoundTag();

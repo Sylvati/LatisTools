@@ -15,10 +15,7 @@ import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Tier;
-import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.*;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -118,9 +115,9 @@ public class BetterTool extends Item {
         if(getDamage(itemStack) == durability) {
             return true;
         }
+
         return super.onLeftClickEntity(itemStack, player, entity);
     }
-
 
     //Harvesting Logic (:3)
 
@@ -145,8 +142,6 @@ public class BetterTool extends Item {
         int exp_per_block = 1; //Arbitrary
 
         levelNbt.putInt(EXP_REF, levelNbt.getInt(EXP_REF) + exp_per_block);
-
-        System.out.println(levelNbt.getInt(EXP_REF) + " " + levelNbt.getInt(LEVEL_UP_EXP_REF));
 
         if(levelNbt.getInt(EXP_REF) >= levelNbt.getInt(LEVEL_UP_EXP_REF)) {
             //Level up!!!
@@ -179,12 +174,11 @@ public class BetterTool extends Item {
     }
 
     //Inventory Tick Stuff
-
     @Override
     public void inventoryTick(ItemStack itemStack, @NotNull Level level, @NotNull Entity player, int slot, boolean selected) {
         CompoundTag originalNbt = itemStack.getTag();
 
-
+        //This runs twice. No clue why. Wish I knew why. TODO: FIX THIS!
         if(originalNbt != null && !originalNbt.contains(LEVEL_DATA_REF)) {
             System.out.println("INITIALIZING THE FREAKING THINGY!!!!!!!!!!!!!!!");
             //Put default nbt
@@ -228,10 +222,15 @@ public class BetterTool extends Item {
         List<Component> components = new ArrayList<>();
 
         //Durability tooltip
-        Component durr_tt = Component.literal(String.valueOf(durability - getDamage(itemStack))).withStyle(ChatFormatting.GREEN);
-        Component total_durr_tt = Component.literal(String.valueOf(durability)).withStyle(ChatFormatting.GREEN);
-        Component final_durr_msg_tt = Component.literal("Durability: ").append(durr_tt).append("/").append(total_durr_tt);
-        components.add(final_durr_msg_tt);
+        Component final_durr_msg_tt;
+        if(getDamage(itemStack) != durability) {
+            Component durr_tt = Component.literal(String.valueOf(durability - getDamage(itemStack))).withStyle(ChatFormatting.GREEN);
+            Component total_durr_tt = Component.literal(String.valueOf(durability)).withStyle(ChatFormatting.GREEN);
+            final_durr_msg_tt = Component.empty().append(durr_tt).append("/").append(total_durr_tt);
+        }else {
+            final_durr_msg_tt = Component.literal("Broken").withStyle(ChatFormatting.RED).withStyle(ChatFormatting.BOLD);
+        }
+        components.add(Component.literal("Durability: ").append(final_durr_msg_tt));
 
         //Level tooltip
         Component level_tt = Component.literal(String.valueOf(levelNbt.getInt(LEVEL_REF))).withStyle(ChatFormatting.YELLOW);

@@ -8,6 +8,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
@@ -30,27 +31,20 @@ import static lati.items.tools.ToolIDs.*;
 
 public class BetterTool extends Item {
     private static final String name = "better_tool";
-    private final Tier tier;
 
     private final TagKey<Block> blocks;
     private final float speed;
-    private float attackDamageBaseline;
-    private Multimap<Attribute, AttributeModifier> defaultModifiers;
+    private float attackDamageBase;
     private final int durability;
 
 
     public BetterTool(Properties props) {
         super(props);
-        this.tier = BetterToolType.BETTER_PICKAXE_TYPE.getToolTier();
-
+        //this.tier = BetterToolType.BETTER_PICKAXE_TYPE.getToolTier(); Think this might be good later? Make new tier types based on input materials? for now this is useless tho
         this.blocks = BlockTags.MINEABLE_WITH_PICKAXE;
-        this.speed = tier.getSpeed();
-        this.attackDamageBaseline = (float)1;
-        ImmutableMultimap.Builder<Attribute, AttributeModifier> builder = ImmutableMultimap.builder();
-        builder.put(Attributes.ATTACK_DAMAGE, new AttributeModifier(BASE_ATTACK_DAMAGE_UUID, "Weapon modifier", this.attackDamageBaseline, AttributeModifier.Operation.ADDITION));
-        builder.put(Attributes.ATTACK_SPEED, new AttributeModifier(BASE_ATTACK_SPEED_UUID, "Tool modifier", 1, AttributeModifier.Operation.ADDITION));
-        this.defaultModifiers = builder.build();
-        this.durability = 10;
+        this.durability = 60; //Should be based on material.
+        this.speed = 9.0f; //Should be based on material.
+        this.attackDamageBase = 2.0f; //Should be based on material.
     }
 
     public static String getName() {
@@ -112,18 +106,62 @@ public class BetterTool extends Item {
 
     @Override
     public boolean onLeftClickEntity(ItemStack itemStack, Player player, Entity entity) {
+        //Durability handling
         if(getDamage(itemStack) == durability) {
-            return true;
+            return super.onLeftClickEntity(itemStack, player, entity); // Return early if its broken
+        }
+
+        //Doing damage handling
+        float attackDamage = attackDamageBase; //This should change based on various factors, like are we critting? etc.
+        entity.hurt(DamageSource.playerAttack(player), attackDamage);
+
+        //Damaging the durability handling
+        int damageAmount = 1;
+        itemStack.hurtAndBreak(damageAmount, player, (p_40992_) -> {
+            p_40992_.broadcastBreakEvent(EquipmentSlot.MAINHAND);
+        });
+
+        //EXP handling
+        int exp_per_kill = 1; //Arbitrary
+        if(!entity.isAlive()) { //If the entity is no longer alive after being hurt, meaning we killed it
+            addExp(itemStack, exp_per_kill, player); //Add exp
         }
 
         return super.onLeftClickEntity(itemStack, player, entity);
+    }
+
+    //Levelling up (putting this here cus im lazy)
+    void levelUp(ItemStack itemStack, Player player) {
+        CompoundTag nbt = itemStack.getTag();
+        CompoundTag levelNbt = (CompoundTag)nbt.get(LEVEL_DATA_REF);
+        CompoundTag modifierNbt = (CompoundTag)nbt.get(MODIFIERS_DATA_REF);
+
+        levelNbt.putInt(LEVEL_REF, levelNbt.getInt(LEVEL_REF) + 1);
+        levelNbt.putInt(EXP_REF, levelNbt.getInt(EXP_REF) - levelNbt.getInt(LEVEL_UP_EXP_REF));
+        levelNbt.putInt(LEVEL_UP_EXP_REF, levelNbt.getInt(LEVEL_UP_EXP_REF) + 1);
+        modifierNbt.putInt(AVAILABLE_MODIFIERS_REF, modifierNbt.getInt(AVAILABLE_MODIFIERS_REF) + 1);
+
+        player.sendSystemMessage(Component.literal("You levelled up to level " + levelNbt.getInt(LEVEL_REF) + "!"));
+    }
+
+    //Adding exp
+    void addExp(ItemStack itemStack, int amountToAdd, Player player) {
+        CompoundTag nbt = itemStack.getTag();
+        CompoundTag levelNbt = (CompoundTag)nbt.get(LEVEL_DATA_REF);
+
+        levelNbt.putInt(EXP_REF, levelNbt.getInt(EXP_REF) + amountToAdd);
+
+        if(levelNbt.getInt(EXP_REF) >= levelNbt.getInt(LEVEL_UP_EXP_REF)) {
+            //Level up!!!
+            levelUp(itemStack, player);
+        }
     }
 
     //Harvesting Logic (:3)
 
     @Override //Maybe good? think its for like when u cant mine dia's with wood. dunno
     public boolean isCorrectToolForDrops(ItemStack stack, BlockState state) {
-        return state.is(blocks) && net.minecraftforge.common.TierSortingRegistry.isCorrectTierForDrops(this.tier, state);
+        return state.is(blocks) && net.minecraftforge.common.TierSortingRegistry.isCorrectTierForDrops(Tiers.DIAMOND, state); //This should be changeable lol
     }
 
     @Override
@@ -135,23 +173,9 @@ public class BetterTool extends Item {
             });
         }
 
-        CompoundTag nbt = itemStack.getTag();
-        CompoundTag levelNbt = (CompoundTag)nbt.get(LEVEL_DATA_REF);
-        CompoundTag modifierNbt = (CompoundTag)nbt.get(MODIFIERS_DATA_REF);
-
+        //adds EXP
         int exp_per_block = 1; //Arbitrary
-
-        levelNbt.putInt(EXP_REF, levelNbt.getInt(EXP_REF) + exp_per_block);
-
-        if(levelNbt.getInt(EXP_REF) >= levelNbt.getInt(LEVEL_UP_EXP_REF)) {
-            //Level up!!!
-            levelNbt.putInt(LEVEL_REF, levelNbt.getInt(LEVEL_REF) + 1);
-            levelNbt.putInt(EXP_REF, levelNbt.getInt(EXP_REF) - levelNbt.getInt(LEVEL_UP_EXP_REF));
-            levelNbt.putInt(LEVEL_UP_EXP_REF, levelNbt.getInt(LEVEL_UP_EXP_REF) + 1);
-            modifierNbt.putInt(AVAILABLE_MODIFIERS_REF, modifierNbt.getInt(AVAILABLE_MODIFIERS_REF) + 1);
-
-            player.sendSystemMessage(Component.literal("You levelled up to level " + levelNbt.getInt(LEVEL_REF) + "!"));
-        }
+        addExp(itemStack, exp_per_block, (Player)player);
 
         return true;
     }
@@ -165,12 +189,13 @@ public class BetterTool extends Item {
         if (blockState.is(this.blocks)) {
 
             if(itemStack.getTag() != null && itemStack.getTag().contains("speed")) {
-                return this.tier.getSpeed() * itemStack.getTag().getInt("speed");
+                return this.speed * itemStack.getTag().getInt("speed"); //This sucks. Needs to be based on individual itemstacks, not the tool class.
+                //Remake itemStack into something like a toolStack? where like it has these extra built in things that I need
             }else {
-                return this.tier.getSpeed();
+                return this.speed; // Same here
             }
         }
-        return 1.0F;
+        return 1.0F; //This is just for everything that isn't pickaxe material lol
     }
 
     //Inventory Tick Stuff

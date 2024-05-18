@@ -2,6 +2,7 @@ package lati.items.tools;
 
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import lati.items.tools.modifiers.Modifier;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -274,6 +275,16 @@ public class BetterTool extends Item {
         components.add(final_modif_tt);
 
         //Actual modifiers tooltip
+        CompoundTag modifiers = (CompoundTag)modifierNbt.get(MODIFIERS_REF);
+
+        for(var key: modifiers.getAllKeys()) {
+            //System.out.println(key);
+            Modifier curr_mod = Modifier.keyToModifier(key);
+            int curr_level = modifiers.getInt(key);
+
+            components.add(Modifier.getCustomDisplay(curr_mod, curr_level));
+        }
+        //System.out.println();
         //Lets do this later
 
         return components;

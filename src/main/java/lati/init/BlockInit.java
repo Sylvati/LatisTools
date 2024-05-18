@@ -1,6 +1,7 @@
 package lati.init;
 
 import lati.LatisTools;
+
 import lati.blocks.ModTableBlock;
 import lati.blocks.ToolTableBlock;
 import net.minecraft.world.item.BlockItem;
@@ -22,6 +23,8 @@ public class BlockInit {
 
     public static final RegistryObject<Block> TOOL_TABLE = register("tool_table", () -> new ToolTableBlock(
             BlockBehaviour.Properties.of(Material.STONE).requiresCorrectToolForDrops().strength(5f, 20f)), new Item.Properties().tab(LatisTools.TAB));
+
+
 
 
     private static <T extends Block> RegistryObject<T> register(String name, Supplier<T> supplier, Item.Properties properties) {

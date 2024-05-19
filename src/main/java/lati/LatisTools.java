@@ -8,6 +8,7 @@ import lati.init.MenuInit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
@@ -33,7 +34,10 @@ public class LatisTools
         IEventBus bus = FMLJavaModLoadingContext.get().getModEventBus();
 
         BlockInit.BLOCKS.register(bus);
+
+        ItemInit.registerToolsWithMaterials();
         ItemInit.ITEMS.register(bus);
+
         BlockEntityInit.BLOCK_ENTITIES.register(bus);
         MenuInit.MENUS.register(bus);
 
@@ -74,7 +78,7 @@ public class LatisTools
     public static final CreativeModeTab TAB = new CreativeModeTab(MODID) {
         @Override
         public ItemStack makeIcon() {
-            return ItemInit.BETTER_TOOL.get().getDefaultInstance();
+            return Items.BEDROCK.getDefaultInstance();
         }
     };
 }

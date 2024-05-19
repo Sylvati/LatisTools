@@ -29,6 +29,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static lati.items.tools.ToolIDs.*;
+import static lati.items.tools.modifiers.Modifier.SHARPNESS_MODIFIER;
+import static lati.items.tools.modifiers.Modifier.SPEED_MODIFIER;
 
 public class BetterTool extends Item {
     private static final String name = "better_tool";
@@ -39,10 +41,10 @@ public class BetterTool extends Item {
     private final int durability;
 
 
-    public BetterTool(Properties props) {
+    public BetterTool(Properties props, Tiers material) {
         super(props);
-        //this.tier = BetterToolType.BETTER_PICKAXE_TYPE.getToolTier(); Think this might be good later? Make new tier types based on input materials? for now this is useless tho
         this.blocks = BlockTags.MINEABLE_WITH_PICKAXE;
+
         this.durability = 60; //Should be based on material.
         this.speed = 9.0f; //Should be based on material.
         this.attackDamageBase = 2.0f; //Should be based on material.
@@ -107,6 +109,11 @@ public class BetterTool extends Item {
 
     @Override
     public boolean onLeftClickEntity(ItemStack itemStack, Player player, Entity entity) {
+        CompoundTag nbt = itemStack.getTag();
+        CompoundTag levelNbt = (CompoundTag)nbt.get(LEVEL_DATA_REF);
+        CompoundTag modifierNbt = (CompoundTag)nbt.get(MODIFIERS_DATA_REF);
+        CompoundTag modifiers = (CompoundTag)modifierNbt.get(MODIFIERS_REF);
+
         //Durability handling
         if(getDamage(itemStack) == durability) {
             return super.onLeftClickEntity(itemStack, player, entity); // Return early if its broken
@@ -114,6 +121,10 @@ public class BetterTool extends Item {
 
         //Doing damage handling
         float attackDamage = attackDamageBase; //This should change based on various factors, like are we critting? etc.
+
+        if(modifiers.contains(SHARPNESS_MODIFIER.getCodeName())) { //modifiers.contains(SHARPNESS_MODIFIER.getCodeName())
+            attackDamage *= modifiers.getInt(SHARPNESS_MODIFIER.getCodeName());
+        }
         entity.hurt(DamageSource.playerAttack(player), attackDamage);
 
         //Damaging the durability handling
@@ -183,14 +194,19 @@ public class BetterTool extends Item {
 
     @Override
     public float getDestroySpeed(@NotNull ItemStack itemStack, @NotNull BlockState blockState) {
+        CompoundTag nbt = itemStack.getTag();
+        CompoundTag levelNbt = (CompoundTag)nbt.get(LEVEL_DATA_REF);
+        CompoundTag modifierNbt = (CompoundTag)nbt.get(MODIFIERS_DATA_REF);
+        CompoundTag modifiers = (CompoundTag)modifierNbt.get(MODIFIERS_REF);
+
         if(getDamage(itemStack) == durability) {
             return 0.0f;
         }
 
         if (blockState.is(this.blocks)) {
 
-            if(itemStack.getTag() != null && itemStack.getTag().contains("speed")) {
-                return this.speed * itemStack.getTag().getInt("speed"); //This sucks. Needs to be based on individual itemstacks, not the tool class.
+            if(itemStack.getTag() != null && modifiers.contains(SPEED_MODIFIER.getCodeName())) {
+                return this.speed * modifiers.getInt(SPEED_MODIFIER.getCodeName()); //This sucks. Needs to be based on individual itemstacks, not the tool class.
                 //Remake itemStack into something like a toolStack? where like it has these extra built in things that I need
             }else {
                 return this.speed; // Same here
